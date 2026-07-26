@@ -22,6 +22,7 @@ async function main(): Promise<void> {
   const lookbackMinutes = args.number("lookback") ?? 60;
   const variant = args.string("variant");
   const minScore = args.number("min-score") ?? config.scoreThreshold;
+  const minGroundedness = args.number("min-groundedness") ?? config.groundednessThreshold;
   const maxTokensPerRun = args.number("max-tokens") ?? config.tokensPerSuccessThreshold;
 
   const endMs = Date.now();
@@ -37,6 +38,7 @@ async function main(): Promise<void> {
   console.log(`\nAgentLens — regression gate`);
   console.log(`  window     : last ${lookbackMinutes} min${variant ? `, variant=${variant}` : ""}`);
   console.log(`  min score  : ${minScore}`);
+  console.log(`  min ground : ${minGroundedness}`);
   console.log(`  max tokens : ${maxTokensPerRun} per run\n`);
 
   const [evaluated, meanScore, meanGroundedness, failures, meanTokens] = await Promise.all([
@@ -91,6 +93,15 @@ async function main(): Promise<void> {
   if (meanScore < minScore) {
     violations.push(
       `mean overall score ${meanScore.toFixed(3)} is below the threshold of ${minScore}`,
+    );
+  }
+  // Checked separately from the overall score because a hallucination can be
+  // averaged away by strong completion and efficiency scores. Groundedness is
+  // the signal that must not be allowed to hide.
+  if (meanGroundedness !== null && meanGroundedness < minGroundedness) {
+    violations.push(
+      `mean groundedness ${meanGroundedness.toFixed(3)} is below the threshold of ` +
+        `${minGroundedness} — the agent is stating facts no tool result supports`,
     );
   }
   if (meanTokens !== null && meanTokens > maxTokensPerRun) {

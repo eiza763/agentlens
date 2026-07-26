@@ -85,6 +85,21 @@ export interface ChatOptions {
   forceTool?: string;
 }
 
+/**
+ * Some providers reject their own model's malformed tool call with a 400 rather
+ * than retrying internally — Groq returns "Failed to call a function" this way.
+ * It is transient (the next sample usually succeeds), but the OpenAI SDK does not
+ * retry 4xx, so it needs handling here or a run dies mid-demo.
+ */
+function isTransientToolCallFailure(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /failed to call a function|failed_generation|tool call validation|did not call a tool/i.test(
+    message,
+  );
+}
+
+const TOOL_CALL_RETRIES = 3;
+
 export async function chat(opts: ChatOptions): Promise<ChatResult> {
   const request: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
     model: opts.model,
@@ -99,7 +114,22 @@ export async function chat(opts: ChatOptions): Promise<ChatResult> {
       : "auto";
   }
 
-  const response = await openai().chat.completions.create(request);
+  let response: OpenAI.Chat.Completions.ChatCompletion | undefined;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= TOOL_CALL_RETRIES; attempt++) {
+    try {
+      response = await openai().chat.completions.create(request);
+      break;
+    } catch (err) {
+      lastError = err;
+      if (!isTransientToolCallFailure(err) || attempt === TOOL_CALL_RETRIES) throw err;
+      // Nudge the sampler off the bad path rather than replaying it verbatim.
+      request.temperature = Math.min(1, 0.3 * attempt);
+    }
+  }
+
+  if (!response) throw lastError ?? new Error("LLM call failed with no response");
   const choice = response.choices[0];
   const message = choice?.message;
 

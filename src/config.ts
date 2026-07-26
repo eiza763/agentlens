@@ -42,8 +42,11 @@ export const PROVIDERS: Record<string, Provider> = {
     name: "groq",
     baseUrl: "https://api.groq.com/openai/v1",
     keyVar: "GROQ_API_KEY",
-    defaultAgentModel: "llama-3.3-70b-versatile",
-    defaultJudgeModel: "llama-3.3-70b-versatile",
+    // gpt-oss-120b rather than llama-3.3-70b: llama returns Groq's
+    // "400 Failed to call a function" on roughly a third of tool-calling turns,
+    // which kills runs mid-demo. Measured, not assumed.
+    defaultAgentModel: "openai/gpt-oss-120b",
+    defaultJudgeModel: "openai/gpt-oss-120b",
     defaultCheapModel: "llama-3.1-8b-instant",
     freeTier: true,
     notes: "Free, no card. Sign in at console.groq.com and create a key. Very fast.",
@@ -149,7 +152,11 @@ export const config = {
     return optional("CHEAP_MODEL", provider().defaultCheapModel);
   },
 
-  scoreThreshold: Number(optional("AGENTLENS_SCORE_THRESHOLD", "0.75")),
+  // Defaults chosen from measured runs: baseline scores ~0.91 overall / ~0.97
+  // groundedness, the regressed variant ~0.74 / ~0.75. These thresholds sit in
+  // the gap with margin on both sides.
+  scoreThreshold: Number(optional("AGENTLENS_SCORE_THRESHOLD", "0.80")),
+  groundednessThreshold: Number(optional("AGENTLENS_GROUNDEDNESS_THRESHOLD", "0.85")),
   tokensPerSuccessThreshold: Number(optional("AGENTLENS_TOKENS_PER_SUCCESS_THRESHOLD", "12000")),
   debug: optional("AGENTLENS_DEBUG", "0") === "1",
 };

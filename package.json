@@ -14,6 +14,7 @@
     "demo": "tsx src/cli/demo.ts",
     "doctor": "tsx src/cli/doctor.ts",
     "selftest": "tsx src/cli/selftest.ts",
+    "smoke": "tsx src/cli/smoke.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

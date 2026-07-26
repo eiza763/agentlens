@@ -15,6 +15,15 @@ import type { Task } from "./tasks.js";
 const MAX_STEPS = 8;
 const MAX_TOKENS = 1024;
 
+/** Detail of one tool call, returned so `npm run smoke` can judge without SigNoz. */
+export interface RunToolCall {
+  name: string;
+  input: string;
+  output: string;
+  isError: boolean;
+  step: number;
+}
+
 export interface RunResult {
   runId: string;
   traceId: string;
@@ -22,6 +31,7 @@ export interface RunResult {
   variant: string;
   answer: string;
   toolSequence: string[];
+  toolCalls: RunToolCall[];
   steps: number;
   inputTokens: number;
   outputTokens: number;
@@ -98,6 +108,7 @@ export async function runAgent(task: Task, variant: Variant, suite: string): Pro
     const traceId = root.spanContext().traceId;
     const messages: Message[] = [{ role: "user", content: task.question }];
     const toolSequence: string[] = [];
+    const toolCalls: RunToolCall[] = [];
     let inputTokens = 0;
     let outputTokens = 0;
     let answer = "";
@@ -189,6 +200,14 @@ export async function runAgent(task: Task, variant: Variant, suite: string): Pro
             step,
           });
 
+          toolCalls.push({
+            name: call.name,
+            input: JSON.stringify(call.args),
+            output: outcome.content,
+            isError: outcome.isError,
+            step,
+          });
+
           messages.push(toolResultMessage(call.id, outcome.content));
         }
       }
@@ -219,6 +238,7 @@ export async function runAgent(task: Task, variant: Variant, suite: string): Pro
         variant: variant.name,
         answer,
         toolSequence,
+        toolCalls,
         steps,
         inputTokens,
         outputTokens,

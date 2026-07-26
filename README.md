@@ -107,9 +107,17 @@ env-var change and no code change:
 | **Anthropic** | Paid | [platform.claude.com](https://platform.claude.com) → API keys |
 | **Ollama** | Free, fully local | no key needed |
 
-Groq is the default because it needs no payment method, issues keys instantly,
-and its function calling is reliable — which matters, because both the agent and
-the judge depend on it.
+Groq is the default: no payment method, keys issued instantly.
+
+**Model choice is not cosmetic here.** The default on Groq is
+`openai/gpt-oss-120b`, chosen by measurement rather than reputation.
+`llama-3.3-70b-versatile` returns Groq's `400 Failed to call a function` on
+roughly a third of tool-calling turns, which kills runs partway through a demo.
+Since both the agent and the judge depend on function calling, that made it
+unusable. `gpt-oss-120b` handled every task cleanly.
+
+The client also retries that specific 400 up to three times with a temperature
+nudge, because it is transient and the OpenAI SDK does not retry 4xx.
 
 ### 1. Get SigNoz Cloud credentials
 
@@ -255,13 +263,21 @@ npm run eval -- --watch                 # continuous evaluation
 npm run gate                            # exit 1 if quality regressed
 npm run gate -- --min-score 0.8
 
-npm run selftest                        # 40 offline checks, no credentials needed
+npm run selftest                        # 47 offline checks, no credentials needed
+npm run smoke                           # agent + judge with NO SigNoz (needs only an LLM key)
+npm run smoke -- --compare              # baseline vs regressed, side by side
 npm run typecheck
 ```
 
-`npm run selftest` runs with no network and no API keys. It covers the
-response-envelope parser against three different SigNoz response shapes, the
-rubric logic, transcript rendering and arg parsing — the parts most likely to
+`npm run selftest` runs with no network and no API keys. `npm run smoke` runs the
+agent and judges it **in-process, bypassing SigNoz entirely** — it exists purely
+to isolate faults. If smoke passes and `npm run demo` fails, the problem is SigNoz
+configuration, not the agent or the judge. It is a diagnostic, not the product:
+judging in-process is exactly the shortcut the real pipeline refuses to take.
+
+The offline checks cover the response-envelope parser against three different
+SigNoz response shapes, the rubric logic, the provider presets, message
+serialisation, transcript rendering and arg parsing — the parts most likely to
 break on someone else's workspace.
 
 ## How runs are scored
