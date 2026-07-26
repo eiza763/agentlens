@@ -19,8 +19,9 @@ hackathon — Track 01, AI & Agent Observability.
 > [How to evaluate this project](#how-to-evaluate-this-project) — Tier 1 needs
 > nothing installed, Tier 2 needs no credentials.
 >
-> Recording a walkthrough? [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) has a 90-second
-> shot-by-shot script.
+> Running this yourself? [`START_HERE.md`](START_HERE.md) is a single linear path
+> from nothing to a working demo, including a self-hosted SigNoz if you have no
+> Cloud account.
 
 ---
 
