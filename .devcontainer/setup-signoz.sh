@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # Bring up a self-hosted SigNoz inside the devcontainer and point AgentLens at it.
 #
 # This exists because SigNoz Cloud signup can be gated on a company email address,
