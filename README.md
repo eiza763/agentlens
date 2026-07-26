@@ -24,7 +24,36 @@ hackathon — Track 01, AI & Agent Observability.
 
 ---
 
-## The problem
+## The problem in thirty seconds
+
+An AI support bot answers the same customer question twice:
+
+| | What it said | |
+|---|---|---|
+| **Monday** | "We have no documented price-match policy — let me get a human." | true |
+| **Saturday** | "We don't offer a price-match guarantee." | **invented** |
+
+No such policy exists in the knowledge base. On Saturday the bot made it up,
+because someone had shipped a well-meaning prompt change: *"be confident, always
+give customers a concrete answer."*
+
+Now compare the two requests the way your monitoring does:
+
+| | Monday | Saturday |
+|---|---|---|
+| HTTP status | 200 OK | 200 OK |
+| Latency | 1.2s | 1.2s |
+| Errors | none | none |
+| Tokens | ~1,500 | ~1,500 |
+
+**Identical.** A lie and the truth are indistinguishable to every signal a normal
+observability stack collects. So nobody finds out until customers complain.
+
+AgentLens scores those two answers **0.96** and **0.12** on groundedness, emits
+the score into SigNoz as a metric, and fails the build when it drops. Those are
+measured numbers from a real run, not an illustration.
+
+## The problem, stated properly
 
 Deploy an AI agent and watch your dashboards. CPU is fine. No errors. Every
 request returns **200 OK**. p99 latency is flat.
