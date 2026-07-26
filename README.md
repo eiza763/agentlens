@@ -113,7 +113,8 @@ Docker is not required — this runs against SigNoz Cloud's free trial.
 > **Codespaces (no Docker or admin rights on your machine).** Open this repo in a
 > GitHub Codespace; [`.devcontainer/`](.devcontainer/) brings up a self-hosted
 > SigNoz and rewrites `.env` to point at it automatically. Add your Anthropic key
-> and run `npm run demo`.
+> and a SigNoz API key, then run `npm run demo`.
+> **[`RUNBOOK.md`](RUNBOOK.md) is the full step-by-step for this path.**
 >
 > **Local Docker.**
 >

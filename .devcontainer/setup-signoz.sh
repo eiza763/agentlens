@@ -63,11 +63,15 @@ cat <<'EOF'
 ==============================================================
  SigNoz is starting up in the background.
 
- Next:
-   1. Put your Anthropic key in .env  ->  ANTHROPIC_API_KEY=sk-ant-...
-   2. Open the SigNoz UI on forwarded port 8080 and create the
-      first admin user (any email works — this is your own instance).
-   3. Wait until the UI loads, then:
+ Next (full walkthrough is in RUNBOOK.md):
+   1. Open the SigNoz UI on forwarded port 8080 (Ports tab) and create
+      the first admin user. Any email works — this is your own instance.
+   2. In SigNoz: Settings -> API Keys -> create a key. Reads are
+      authenticated even locally, so this one IS required.
+   3. Put both keys in .env:
+        ANTHROPIC_API_KEY=sk-ant-...
+        SIGNOZ_API_KEY=<the key from step 2>
+   4. Then:
 
         npm run doctor
         npm run demo
