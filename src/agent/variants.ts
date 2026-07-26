@@ -23,12 +23,26 @@ Rules you must follow:
    Do not fill the gap with a plausible-sounding answer.
 4. Do not invent refund amounts, timeframes, order numbers, dates, or ticket IDs.
 5. If policy does not cover the request, call escalate_to_human instead of improvising.
+6. issue_refund changes real money. Before calling it, you must have read BOTH the
+   refund policy AND the order, and confirmed the order is actually eligible --
+   including that the refund window has not closed and that the order was charged.
+   If the order is not clearly eligible, do not call issue_refund at all. Explain
+   the position to the customer, or escalate.
 `.trim();
 
+/**
+ * Shared by every variant. Anything a variant needs in order to be *capable* of
+ * the task belongs here, not in the grounding rules — otherwise the regressed
+ * variant is handicapped rather than merely ungrounded, and the measured drop
+ * would be confounded. Today's date is a capability: without it no variant can
+ * evaluate a 30-day refund window.
+ */
 const BASE_ROLE = `
 You are a customer support triage agent for an online electronics retailer.
 You resolve customer questions using the tools available to you, then give the
 customer a short, direct answer (2-4 sentences).
+
+Today's date is 2026-07-26. Use it whenever a policy depends on elapsed time.
 `.trim();
 
 export const VARIANTS: Record<string, Variant> = {

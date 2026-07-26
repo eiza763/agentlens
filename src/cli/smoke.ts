@@ -57,14 +57,26 @@ interface Scored {
   failedChecks: string[];
 }
 
-async function runVariant(variantName: string, tasks: Task[], suite: string): Promise<Scored[]> {
+async function runVariant(
+  variantName: string,
+  tasks: Task[],
+  suite: string,
+  repeat: number,
+): Promise<Scored[]> {
   const variant = getVariant(variantName);
   console.log(`\n--- variant: ${variant.name} (${variant.model}) ---`);
-  console.log(`    ${variant.description}\n`);
+  console.log(`    ${variant.description}`);
+  if (repeat > 1) console.log(`    ${repeat} repetitions per task`);
+  console.log("");
 
   const scored: Scored[] = [];
 
-  for (const task of tasks) {
+  // LLMs are stochastic, so a single run per task produces noise comparable to
+  // the effect being measured. Repetitions are how the regression becomes a
+  // reliable signal rather than a coin flip.
+  const queue = tasks.flatMap((task) => Array.from({ length: repeat }, () => task));
+
+  for (const task of queue) {
     try {
       const result = await runAgent(task, variant, suite);
       const run = asReconstructed(result, suite);
@@ -127,16 +139,17 @@ async function main(): Promise<void> {
   const suite = args.string("suite") ?? "smoke";
   const compare = args.bool("compare");
   const variantName = args.string("variant") ?? "baseline";
+  const repeat = Math.max(1, args.number("repeat") ?? 1);
 
   console.log(`\nAgentLens — local smoke test (no SigNoz involved)`);
   console.log(`  provider : ${provider().name}`);
   console.log(`  agent    : ${config.agentModel}`);
   console.log(`  judge    : ${config.judgeModel}`);
-  console.log(`  tasks    : ${tasks.length}`);
+  console.log(`  tasks    : ${tasks.length}${repeat > 1 ? ` x ${repeat} reps` : ""}`);
 
   if (compare) {
-    const baseline = await runVariant("baseline", tasks, suite);
-    const regressed = await runVariant("regressed", tasks, suite);
+    const baseline = await runVariant("baseline", tasks, suite, repeat);
+    const regressed = await runVariant("regressed", tasks, suite, repeat);
 
     console.log(`\n==== comparison ====`);
     summarise("baseline", baseline);
@@ -160,7 +173,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const scored = await runVariant(variantName, tasks, suite);
+  const scored = await runVariant(variantName, tasks, suite, repeat);
   console.log(`\n==== summary ====`);
   summarise(variantName, scored);
   console.log("");

@@ -253,8 +253,9 @@ npm run demo                            # the full scripted demo
 
 npm run agent                           # run baseline over all tasks
 npm run agent -- --variant regressed    # the simulated bad deploy
-npm run agent -- --variant cheap        # Haiku: cost/quality tradeoff
+npm run agent -- --variant cheap        # smaller model: capability tradeoff
 npm run agent -- --tasks T05,T06,T07    # just the traps
+npm run agent -- --repeat 3             # 3 runs per task, to average out noise
 
 npm run eval                            # grade runs from the last 30 min
 npm run eval -- --lookback 120
@@ -364,9 +365,20 @@ Full metric list in [`signoz/PANELS.md`](signoz/PANELS.md#metrics-reference).
 
 ## Honest limitations
 
-- **The judge is a model, so it has variance.** That is exactly why the
+- **Single runs are noisy — use `--repeat`.** This is the most important caveat,
+  and it is measured rather than theoretical. On one pass over the 8-task suite,
+  the baseline-to-regressed groundedness gap came out at `-0.071`; on the three
+  trap tasks alone it was `-0.218`. Agents are stochastic, and with one run per
+  task the run-to-run variance is comparable to the effect being measured. Use
+  `--repeat 3` for any number you intend to show someone, and expect the trap
+  tasks to carry most of the signal.
+- **The judge is a model, so it has variance too.** That is exactly why the
   deterministic rubric runs alongside it and is reported separately. For
   production use, pin the judge model and version it like any other dependency.
+- **Free-tier models are weaker judges.** `gpt-oss-120b` on Groq judges
+  competently, but a frontier model is noticeably more consistent, especially at
+  distinguishing "correctly refused" from "failed to answer". Set
+  `LLM_PROVIDER=anthropic` if you have a key and want tighter numbers.
 - **Ingestion lag is real.** Traces take a few seconds to become queryable, so
   the demo waits 20s between running and evaluating. Not a bug, but it does mean
   evaluation is near-real-time rather than instant.

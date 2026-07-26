@@ -19,8 +19,13 @@ async function main(): Promise<void> {
   const suite = args.string("suite") ?? "golden-v1";
   const taskIds = args.list("tasks");
 
+  const repeat = Math.max(1, args.number("repeat") ?? 1);
+
   const variant = getVariant(variantName);
   const tasks = getTasks(taskIds);
+  // Repetitions matter for the dashboard as well as for statistics: one point per
+  // task makes a time series that is mostly noise.
+  const queue = tasks.flatMap((task) => Array.from({ length: repeat }, () => task));
 
   initTelemetry({
     serviceName: SERVICE.agent,
@@ -31,12 +36,12 @@ async function main(): Promise<void> {
   console.log(`  variant : ${variant.name} (${variant.description})`);
   console.log(`  model   : ${variant.model}`);
   console.log(`  suite   : ${suite}`);
-  console.log(`  tasks   : ${tasks.length}\n`);
+  console.log(`  tasks   : ${tasks.length}${repeat > 1 ? ` x ${repeat} reps = ${queue.length} runs` : ""}\n`);
 
   let ok = 0;
   let failed = 0;
 
-  for (const task of tasks) {
+  for (const task of queue) {
     try {
       const result = await runAgent(task, variant, suite);
       ok += 1;
