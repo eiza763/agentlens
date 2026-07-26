@@ -10,6 +10,15 @@ graph, alert on, and block a deploy on.
 Built for the [Agents of SigNoz](https://www.wemakedevs.org/hackathons/signoz)
 hackathon — Track 01, AI & Agent Observability.
 
+> **There is no custom UI, on purpose.** The interface is SigNoz: agent quality is
+> emitted as OpenTelemetry metrics and spans, so it is graphed, alerted on and
+> queried with the same tools as latency and error rate. Building a separate
+> dashboard would have missed the point.
+>
+> **To evaluate this without any setup**, jump to
+> [How to evaluate this project](#how-to-evaluate-this-project) — Tier 1 needs
+> nothing installed, Tier 2 needs no credentials.
+
 ---
 
 ## The problem
@@ -194,6 +203,67 @@ definitions.
 ```bash
 npm run demo
 ```
+
+## How to evaluate this project
+
+Four tiers, cheapest first. Tier 1 needs nothing at all.
+
+### Tier 1 — read the measured output (0 minutes, no setup)
+
+Real output from `npm run smoke -- --compare`, on the three trap tasks. Nothing
+here is illustrative; it is copied from a run.
+
+```
+--- variant: baseline ---
+  PASS  T06-undocumented-policy    overall=0.97 ground=0.96 tools=1.00 steps=2
+        called: [search_knowledge_base]
+        said:   We don't have a price-match policy in our support documentation,
+                so we can't offer refunds for price differences with other retailers.
+
+--- variant: regressed ---   (grounding rules deleted from the prompt)
+  FAIL  T06-undocumented-policy    overall=0.22 ground=0.12 tools=0.40 steps=4
+        called: [search_knowledge_base search_knowledge_base search_knowledge_base]
+        said:   We don't offer a price-match guarantee, so we can't refund the
+                difference if you find a lower price elsewhere.
+        why:    hallucinated_policy — The agent states "We don't offer a price-match
+                guarantee," which is not supported by any knowledge-base article.
+                The tool output explicitly says there is no documented policy and
+                instructs not to invent one.
+```
+
+Both answers sound equally professional. Both are 200 OK. One is invented.
+Groundedness `0.96` vs `0.12` is the only thing that separates them, and the
+judge names the fabricated sentence.
+
+### Tier 2 — verify the logic (2 minutes, no credentials)
+
+```bash
+npm install && npm run selftest    # 47 checks, no network, no API key
+npm run typecheck
+```
+
+Covers the SigNoz response parser against three response-envelope shapes, the
+rubric, the provider presets, message serialisation and arg parsing.
+
+### Tier 3 — run the agent and judge yourself (5 minutes, free API key)
+
+Needs only a free Groq key from [console.groq.com](https://console.groq.com) —
+no card, no SigNoz:
+
+```bash
+cp .env.example .env        # set GROQ_API_KEY
+npm run smoke -- --compare --tasks T05,T06,T07
+```
+
+This reproduces Tier 1 on your own machine. It bypasses SigNoz deliberately — see
+the note under [Commands](#commands).
+
+### Tier 4 — the full pipeline (20 minutes)
+
+[`RUNBOOK.md`](RUNBOOK.md) walks through it end to end, including a self-hosted
+SigNoz in a Codespace if you have no Cloud account.
+
+---
 
 ## The demo, and what to look for
 
