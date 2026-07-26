@@ -248,6 +248,47 @@ it names the problem in plain language: `hallucinated_policy`, six times.
 
 ---
 
+## Token budget — read this before running anything twice
+
+Groq's free tier allows **200,000 tokens per day, metered per model**. This is
+the real constraint on how many times you can rehearse, and it is easy to
+exhaust by accident.
+
+Measured cost, agent plus judge: **roughly 6,000 tokens per evaluated run**.
+
+| What you run | Runs | Approx tokens | Share of daily quota |
+|---|---|---|---|
+| `--tasks T05,T06,T07 --compare` | 6 | ~36k | 18% |
+| Full suite `--compare` | 16 | ~96k | 48% |
+| Full suite `--compare --repeat 2` | 32 | ~190k | **95% — exhausts it** |
+
+**Practical advice:**
+
+1. **Rehearse with the three trap tasks, not the full suite.** They carry the
+   signal and cost a fifth as much.
+2. **Save your quota for the run you record.** Local `smoke` runs and the real
+   SigNoz demo draw on the same allowance.
+3. **If you hit the daily limit, switch model — do not wait.** Quotas are
+   per-model, so this gives a fresh 200k immediately:
+
+   ```bash
+   AGENT_MODEL=openai/gpt-oss-20b JUDGE_MODEL=openai/gpt-oss-20b npm run demo
+   ```
+
+   Groq models that handle tool calling: `openai/gpt-oss-120b`,
+   `openai/gpt-oss-20b`, `qwen/qwen3.6-27b`. Avoid
+   `llama-3.3-70b-versatile` — it fails tool calls about a third of the time.
+
+4. **Or switch provider entirely** — Gemini's free tier is a separate quota:
+
+   ```bash
+   LLM_PROVIDER=gemini GEMINI_API_KEY=... npm run demo
+   ```
+
+A daily-quota `429` says `tokens per day (TPD)`. A per-minute `429` does not —
+that one clears if you wait sixty seconds. The CLI distinguishes them and tells
+you which you have hit.
+
 ## Cost and quotas
 
 - **Codespaces:** free personal accounts include 120 core-hours/month. A 4-core

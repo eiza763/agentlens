@@ -379,6 +379,12 @@ Full metric list in [`signoz/PANELS.md`](signoz/PANELS.md#metrics-reference).
   competently, but a frontier model is noticeably more consistent, especially at
   distinguishing "correctly refused" from "failed to answer". Set
   `LLM_PROVIDER=anthropic` if you have a key and want tighter numbers.
+- **Evaluation is not free, even on a free tier.** Roughly 6,000 tokens per
+  evaluated run, agent plus judge. Groq's free allowance is 200,000 tokens per
+  day *per model*, so a full 8-task comparison at `--repeat 2` will exhaust it.
+  Budget guidance is in [`RUNBOOK.md`](RUNBOOK.md#token-budget--read-this-before-running-anything-twice).
+  At production volume you would sample rather than judge every run — the
+  metrics pipeline is already built for that.
 - **Ingestion lag is real.** Traces take a few seconds to become queryable, so
   the demo waits 20s between running and evaluating. Not a bug, but it does mean
   evaluation is near-real-time rather than instant.

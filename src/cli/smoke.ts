@@ -105,8 +105,18 @@ async function runVariant(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`  ERROR ${task.id}: ${message}`);
-      if (/429|rate/i.test(message)) {
-        console.error(`        (free-tier rate limit — wait a minute and rerun)`);
+      if (/tokens per day|TPD/i.test(message)) {
+        // Distinct from a per-minute limit: waiting does not help, so say so
+        // rather than letting someone retry a loop for an hour.
+        console.error(
+          `        DAILY TOKEN QUOTA EXHAUSTED. Waiting will not help today.\n` +
+            `        Options: switch model (AGENT_MODEL=openai/gpt-oss-20b — quotas are\n` +
+            `        per-model on Groq), or switch provider (LLM_PROVIDER=gemini).`,
+        );
+        break;
+      }
+      if (/429|rate limit/i.test(message)) {
+        console.error(`        (per-minute rate limit — wait a minute and rerun)`);
       }
     }
   }
@@ -155,18 +165,32 @@ async function main(): Promise<void> {
     summarise("baseline", baseline);
     summarise("regressed", regressed);
 
+    // A delta is only meaningful when both sides actually ran. Comparing against
+    // an empty set silently reports the baseline's own score as the drop, which
+    // looks like a spectacular regression and is pure artefact.
+    if (baseline.length === 0 || regressed.length === 0) {
+      const empty = baseline.length === 0 ? "baseline" : "regressed";
+      console.log(
+        `\n  NO COMPARISON POSSIBLE — the ${empty} variant completed no runs.\n` +
+          `  This is usually a rate limit or quota exhaustion. Check the errors above,\n` +
+          `  then rerun with fewer tasks (--tasks T05,T06,T07) or a different model.`,
+      );
+      console.log("");
+      return;
+    }
+
     const drop =
       mean(baseline.map((s) => s.judgement.scores.groundedness)) -
       mean(regressed.map((s) => s.judgement.scores.groundedness));
     console.log(
       `\n  groundedness delta: ${drop >= 0 ? "-" : "+"}${Math.abs(drop).toFixed(3)} ` +
-        `(baseline -> regressed)`,
+        `(baseline -> regressed, n=${baseline.length} vs ${regressed.length})`,
     );
     if (drop <= 0.05) {
       console.log(
-        `  NOTE: the regression did not clearly show up. Smaller models sometimes\n` +
-          `  ignore the prompt change. Try --tasks T05,T06,T07 (the trap tasks), or a\n` +
-          `  stronger model via AGENT_MODEL.`,
+        `  NOTE: the regression did not clearly show up. Single runs are noisy —\n` +
+          `  try --repeat 3, restrict to the trap tasks (--tasks T05,T06,T07), or use\n` +
+          `  a stronger model via AGENT_MODEL.`,
       );
     }
     console.log("");
