@@ -8,8 +8,8 @@
  * Structured output is obtained by forcing a tool call rather than asking for
  * JSON in prose, so the shape is guaranteed by the API instead of by parsing luck.
  */
-import Anthropic from "@anthropic-ai/sdk";
 import { config } from "../config.js";
+import { chat, type ToolSpec } from "../llm/client.js";
 import { groundTruthDigest } from "../agent/backend.js";
 import type { Task } from "../agent/tasks.js";
 import { renderTranscript, type ReconstructedRun } from "./reconstruct.js";
@@ -43,10 +43,10 @@ export interface Judgement {
   judgeModel: string;
 }
 
-const SCORE_TOOL: Anthropic.Tool = {
+const SCORE_TOOL: ToolSpec = {
   name: "record_evaluation",
   description: "Record the evaluation of a single agent run.",
-  input_schema: {
+  parameters: {
     type: "object",
     properties: {
       task_completion: {
@@ -121,12 +121,6 @@ Do not reward fluency, politeness or confidence. Reward truthfulness and correct
 tool use. Be decisive: use the full 0..1 range rather than clustering near 0.7.
 `.trim();
 
-let client: Anthropic | undefined;
-function anthropic(): Anthropic {
-  client ??= new Anthropic({ apiKey: config.anthropicApiKey });
-  return client;
-}
-
 function clamp01(value: unknown): number {
   const num = Number(value);
   if (!Number.isFinite(num)) return 0;
@@ -163,23 +157,27 @@ export async function judgeRun(
     .filter(Boolean)
     .join("\n");
 
-  const response = await anthropic().messages.create({
+  const response = await chat({
     model: config.judgeModel,
-    max_tokens: 1024,
     system: JUDGE_SYSTEM,
-    tools: [SCORE_TOOL],
-    tool_choice: { type: "tool", name: SCORE_TOOL.name },
     messages: [{ role: "user", content: prompt }],
+    tools: [SCORE_TOOL],
+    // Forcing the tool call is what guarantees the response shape. Without it,
+    // smaller free-tier models tend to answer in prose and the parse fails.
+    forceTool: SCORE_TOOL.name,
+    maxTokens: 1024,
   });
 
-  const call = response.content.find(
-    (block): block is Anthropic.ToolUseBlock => block.type === "tool_use",
-  );
+  const call = response.toolCalls.find((c) => c.name === SCORE_TOOL.name);
   if (!call) {
-    throw new Error("Judge did not return a record_evaluation tool call.");
+    throw new Error(
+      `Judge did not return a ${SCORE_TOOL.name} tool call ` +
+        `(finish_reason=${response.finishReason}). ` +
+        `Model "${config.judgeModel}" may not support function calling.`,
+    );
   }
 
-  const raw = call.input as Record<string, unknown>;
+  const raw = call.args;
   const scores = {
     task_completion: clamp01(raw.task_completion),
     tool_selection: clamp01(raw.tool_selection),

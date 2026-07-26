@@ -15,6 +15,8 @@ import { parseArgs } from "./args.js";
 import { TASKS, getTasks } from "../agent/tasks.js";
 import { searchKb, groundTruthDigest } from "../agent/backend.js";
 import { VARIANTS } from "../agent/variants.js";
+import { PROVIDERS, provider } from "../config.js";
+import { assistantMessage, toolResultMessage } from "../llm/client.js";
 
 let passed = 0;
 let failed = 0;
@@ -201,6 +203,66 @@ check(
   !(VARIANTS.regressed?.systemPrompt ?? "").includes("Never state a policy"),
 );
 check("variants: cheap uses a different model", VARIANTS.cheap?.model !== VARIANTS.baseline?.model);
+
+// --- Provider layer ----------------------------------------------------------
+
+check("providers: at least one free-tier option", Object.values(PROVIDERS).some((p) => p.freeTier));
+check(
+  "providers: every preset has a base URL, key var and models",
+  Object.values(PROVIDERS).every(
+    (p) => p.baseUrl.startsWith("http") && p.keyVar.length > 0 && p.defaultAgentModel.length > 0 && p.defaultCheapModel.length > 0,
+  ),
+);
+check(
+  "providers: cheap model differs from agent model",
+  Object.values(PROVIDERS).every((p) => p.defaultCheapModel !== p.defaultAgentModel),
+);
+check(
+  "providers: unknown LLM_PROVIDER throws",
+  (() => {
+    const saved = process.env.LLM_PROVIDER;
+    process.env.LLM_PROVIDER = "definitely-not-a-provider";
+    try {
+      provider();
+      return false;
+    } catch {
+      return true;
+    } finally {
+      if (saved === undefined) delete process.env.LLM_PROVIDER;
+      else process.env.LLM_PROVIDER = saved;
+    }
+  })(),
+);
+
+const textOnly = assistantMessage({
+  text: "Your order is in transit.",
+  toolCalls: [],
+  inputTokens: 10,
+  outputTokens: 5,
+  finishReason: "stop",
+  model: "m",
+  id: "1",
+});
+check("client: text-only reply becomes a plain assistant message", textOnly.role === "assistant" && !("tool_calls" in textOnly));
+
+const withTools = assistantMessage({
+  text: "",
+  toolCalls: [{ id: "call_1", name: "lookup_order", args: { order_id: "ORD-1002" } }],
+  inputTokens: 10,
+  outputTokens: 5,
+  finishReason: "tool_calls",
+  model: "m",
+  id: "1",
+});
+check(
+  "client: tool call is serialised back to the wire format",
+  "tool_calls" in withTools &&
+    JSON.parse((withTools.tool_calls?.[0] as { function: { arguments: string } }).function.arguments).order_id ===
+      "ORD-1002",
+);
+
+const toolMsg = toolResultMessage("call_1", "result text");
+check("client: tool result message carries the call id", toolMsg.role === "tool" && "tool_call_id" in toolMsg);
 
 // --- Backend ground truth ----------------------------------------------------
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # Bring up a self-hosted SigNoz inside the devcontainer and point AgentLens at it.
 #
 # This exists because SigNoz Cloud signup can be gated on a company email address,
@@ -65,11 +65,11 @@ cat <<'EOF'
 
  Next (full walkthrough is in RUNBOOK.md):
    1. Open the SigNoz UI on forwarded port 8080 (Ports tab) and create
-      the first admin user. Any email works — this is your own instance.
+      the first admin user. Any email works - this is your own instance.
    2. In SigNoz: Settings -> API Keys -> create a key. Reads are
       authenticated even locally, so this one IS required.
    3. Put both keys in .env:
-        ANTHROPIC_API_KEY=sk-ant-...
+        GROQ_API_KEY=gsk_...  (free, no card: console.groq.com)
         SIGNOZ_API_KEY=<the key from step 2>
    4. Then:
 

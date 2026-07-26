@@ -58,11 +58,15 @@ exact numbers and timeframes. Avoid escalating to a human where you can help.
 Keep tool usage to a minimum so replies are fast.`,
   },
 
-  /** Same prompt, cheaper model: the cost/quality tradeoff, made measurable. */
+  /**
+   * Same prompt, smaller model: the capability/efficiency tradeoff, made
+   * measurable. Small models often stop calling tools and answer from memory,
+   * which shows up as a tool_selection drop rather than a groundedness drop.
+   */
   cheap: {
     name: "cheap",
-    model: "claude-haiku-4-5-20251001",
-    description: "Full grounding rules on the cheapest model.",
+    model: config.cheapModel,
+    description: "Full grounding rules on a smaller, faster model.",
     systemPrompt: `${BASE_ROLE}\n\n${GROUNDING_RULES}`,
   },
 };

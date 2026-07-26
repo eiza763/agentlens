@@ -5,6 +5,7 @@
  *   npm run doctor
  */
 import "dotenv/config";
+import { config, provider } from "../config.js";
 
 interface Check {
   name: string;
@@ -21,28 +22,57 @@ function env(name: string): string {
 
 const checks: Check[] = [
   {
-    name: "ANTHROPIC_API_KEY",
+    name: "LLM provider + key",
     run: async () => {
-      const key = env("ANTHROPIC_API_KEY");
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const p = provider();
+      const key = config.llmApiKey;
+      const model = config.agentModel;
+
+      // A real tool-calling request, not just a ping: the agent and the judge
+      // both depend on function calling, and free-tier models vary in whether
+      // they support it. Better to fail here than three minutes into a demo.
+      const res = await fetch(`${p.baseUrl}/chat/completions`, {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-api-key": key,
-          "anthropic-version": "2023-06-01",
-        },
+        headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
         body: JSON.stringify({
-          model: process.env.AGENT_MODEL || "claude-sonnet-5",
-          max_tokens: 4,
-          messages: [{ role: "user", content: "hi" }],
+          model,
+          max_tokens: 64,
+          messages: [{ role: "user", content: "Call the ping tool." }],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "ping",
+                description: "Reply to a ping.",
+                parameters: { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"] },
+              },
+            },
+          ],
+          tool_choice: "auto",
         }),
       });
-      if (res.status === 401) throw new Error("rejected (401) — key is invalid");
-      if (!res.ok) {
-        const body = await res.text();
-        throw new Error(`HTTP ${res.status}: ${body.slice(0, 200)}`);
+
+      const body = await res.text();
+      if (res.status === 401 || res.status === 403) {
+        throw new Error(`key rejected (HTTP ${res.status}) for provider "${p.name}". ${p.notes}`);
       }
-      return "valid, model reachable";
+      if (res.status === 404) {
+        throw new Error(`model "${model}" not found on ${p.name}. Set AGENT_MODEL to a valid model.`);
+      }
+      if (res.status === 429) {
+        throw new Error(`rate limited (429) — free tier quota. Wait a minute and retry.`);
+      }
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status} from ${p.baseUrl}: ${body.slice(0, 250)}`);
+      }
+
+      const supportsTools = body.includes("tool_calls");
+      return (
+        `${p.name} reachable, model "${model}" responded` +
+        (supportsTools
+          ? ", function calling works"
+          : " — WARNING: no tool_calls in response, this model may not support function calling")
+      );
     },
   },
   {

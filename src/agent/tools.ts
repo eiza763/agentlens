@@ -1,16 +1,16 @@
-import type Anthropic from "@anthropic-ai/sdk";
 import { SpanStatusCode } from "@opentelemetry/api";
 import { tracer } from "../telemetry/otel.js";
 import { AGENTLENS, GENAI, GENAI_OP } from "../telemetry/genai.js";
+import type { ToolSpec } from "../llm/client.js";
 import { ORDERS, searchKb } from "./backend.js";
 
-export const TOOL_DEFS: Anthropic.Tool[] = [
+export const TOOL_DEFS: ToolSpec[] = [
   {
     name: "lookup_order",
     description:
       "Look up a customer order by its ID. Returns status, dates, item and total. " +
       "Use this before making any claim about a specific order.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         order_id: { type: "string", description: "Order ID, e.g. ORD-1002" },
@@ -23,7 +23,7 @@ export const TOOL_DEFS: Anthropic.Tool[] = [
     description:
       "Search the support knowledge base for policy information (refunds, shipping, " +
       "warranty, cancellation). Use this before stating any policy.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         query: { type: "string", description: "What policy to look up" },
@@ -36,7 +36,7 @@ export const TOOL_DEFS: Anthropic.Tool[] = [
     description:
       "Issue a refund for an order. Only call this when the knowledge base and the " +
       "order status together confirm the customer is eligible.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         order_id: { type: "string" },
@@ -51,7 +51,7 @@ export const TOOL_DEFS: Anthropic.Tool[] = [
     description:
       "Hand the conversation to a human agent. Use when the request needs a decision " +
       "outside documented policy, or when required information is unavailable.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
         reason: { type: "string" },

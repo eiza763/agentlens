@@ -94,6 +94,23 @@ The trace is the interface. That is the whole idea.
 
 ## Quick start
 
+### 0. Get an LLM API key (free options available)
+
+AgentLens speaks the OpenAI-compatible protocol, so any of these work with an
+env-var change and no code change:
+
+| Provider | Free? | Where to get a key |
+|---|---|---|
+| **Groq** (default) | Free, no card | [console.groq.com](https://console.groq.com) → API Keys |
+| **Google Gemini** | Free tier, no card | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| **OpenRouter** | Free models available | [openrouter.ai/keys](https://openrouter.ai/keys) |
+| **Anthropic** | Paid | [platform.claude.com](https://platform.claude.com) → API keys |
+| **Ollama** | Free, fully local | no key needed |
+
+Groq is the default because it needs no payment method, issues keys instantly,
+and its function calling is reliable — which matters, because both the agent and
+the judge depend on it.
+
 ### 1. Get SigNoz Cloud credentials
 
 Docker is not required — this runs against SigNoz Cloud's free trial.
@@ -138,9 +155,10 @@ cp .env.example .env     # then fill in the four required values
 ```
 
 ```ini
-ANTHROPIC_API_KEY=sk-ant-...
-SIGNOZ_INGESTION_KEY=...
+LLM_PROVIDER=groq
+GROQ_API_KEY=...
 OTEL_EXPORTER_OTLP_ENDPOINT=https://ingest.us.signoz.cloud:443
+SIGNOZ_INGESTION_KEY=...
 SIGNOZ_API_URL=https://your-workspace.us.signoz.cloud
 SIGNOZ_API_KEY=...
 ```
@@ -353,9 +371,24 @@ Full metric list in [`signoz/PANELS.md`](signoz/PANELS.md#metrics-reference).
 - Per-tool groundedness attribution: which tool's output the agent most often
   ignores or over-extends.
 
+## Provider independence
+
+The LLM layer ([`src/llm/client.ts`](src/llm/client.ts)) targets the
+OpenAI-compatible chat-completions protocol, which Groq, Gemini, OpenRouter,
+Anthropic and Ollama all expose. Switching provider is one env var:
+
+```bash
+LLM_PROVIDER=gemini GEMINI_API_KEY=... npm run demo
+```
+
+Agent and judge models are configured separately (`AGENT_MODEL` / `JUDGE_MODEL`)
+on purpose: when you are measuring whether a change to the agent hurt quality,
+the judge must not move at the same time. Pin the judge, vary the agent.
+
+This is also why the project has no pricing logic. Efficiency is reported in
+**tokens**, not dollars — a unit that is exact, provider-neutral, and does not
+silently go stale when a vendor changes its rate card.
+
 ## Credits
 
-Built with [SigNoz Cloud](https://signoz.io), OpenTelemetry, and the
-[Claude API](https://platform.claude.com). Judge and agent both use Claude;
-the agent's model is configurable via `AGENT_MODEL`, the judge's via `JUDGE_MODEL`,
-deliberately kept separate so the judge can be held stable while the agent varies.
+Built with [SigNoz](https://signoz.io) and OpenTelemetry.

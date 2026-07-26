@@ -7,16 +7,23 @@ Total time: roughly 20 minutes, most of it waiting for images to pull.
 
 ---
 
-## Step 0 — Get an Anthropic API key
+## Step 0 — Get a free LLM API key
 
-Do this first so you are not blocked later.
+Do this first so you are not blocked later. **No payment method required.**
 
-1. Go to **https://platform.claude.com** and sign in.
-2. **Settings → API keys → Create key**. Copy it — it is shown once.
-3. **Check you have credit.** Under **Settings → Billing**, confirm a balance or
-   add a small amount. A full demo run is 16 agent runs plus 16 judge calls,
-   which is a few cents, but a zero-balance key fails with a `400` and the error
-   is easy to misread as a bug in the project.
+1. Go to **https://console.groq.com** and sign in with Google or GitHub.
+2. **API Keys → Create API Key**. Copy it — it is shown once.
+
+That is the whole step. Groq's free tier needs no card, and its function calling
+is reliable — which matters, because both the agent and the judge depend on it.
+
+**Alternative free option:** Google Gemini at
+[aistudio.google.com/apikey](https://aistudio.google.com/apikey). If you use it,
+set `LLM_PROVIDER=gemini` and `GEMINI_API_KEY=...` instead in Step 5.
+
+> Free tiers rate-limit. If a run stops with a `429`, wait a minute and rerun —
+> the client already retries a few times, and traces from completed runs are not
+> lost.
 
 Keep the key on your clipboard.
 
@@ -116,10 +123,11 @@ nano in the terminal:
 nano .env
 ```
 
-Set these two lines:
+Set these lines:
 
 ```ini
-ANTHROPIC_API_KEY=sk-ant-...        # from Step 0
+LLM_PROVIDER=groq
+GROQ_API_KEY=gsk_...                # from Step 0
 SIGNOZ_API_KEY=...                  # from Step 4
 ```
 
@@ -146,11 +154,18 @@ points at exactly one thing:
 
 | Failure | Meaning | Fix |
 |---|---|---|
-| `ANTHROPIC_API_KEY ... rejected (401)` | Key is wrong or revoked | Re-copy from the console |
-| `ANTHROPIC_API_KEY ... HTTP 400` | Usually zero credit balance | Add credit (Step 0) |
+| `key rejected (401/403)` | LLM key wrong or revoked | Re-copy from the provider console |
+| `model "..." not found` | Model name invalid for this provider | Set `AGENT_MODEL` to one the provider lists |
+| `rate limited (429)` | Free-tier quota | Wait a minute, rerun |
+| `WARNING: no tool_calls` | Model lacks function calling | Switch model — the project needs it |
 | `SIGNOZ_API_URL ... 404` | Query service not up yet | Wait 60s, rerun |
 | `SIGNOZ_API_KEY ... rejected (401/403)` | Key wrong or lacks a role | Recreate it (Step 4) |
 | `OTEL_... connection refused` | Collector still starting | Wait 60s, rerun |
+
+The LLM check deliberately makes a **real tool-calling request** rather than a
+simple ping, because function calling is what the agent and judge actually
+depend on and free-tier models vary in supporting it. Better to fail here than
+three minutes into a demo.
 
 **A SigNoz failure on the first attempt is expected.** ClickHouse and the query
 service take a few minutes to become ready. Rerun before assuming anything is
@@ -238,8 +253,9 @@ it names the problem in plain language: `hallucinated_policy`, six times.
 - **Codespaces:** free personal accounts include 120 core-hours/month. A 4-core
   machine burns 4 core-hours per wall-clock hour, so ~30 hours of use. **Stop the
   Codespace when you finish** — Codespaces page → `...` → Stop.
-- **Anthropic:** a full `npm run demo` is 16 agent runs + 16 judge calls. Cents,
-  not dollars.
+- **LLM:** a full `npm run demo` is 16 agent runs + 16 judge calls. On Groq's or
+  Gemini's free tier that costs nothing; you may hit a rate limit and need to
+  rerun, which is safe.
 
 ---
 
