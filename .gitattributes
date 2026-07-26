@@ -1,0 +1,10 @@
+# Shell scripts must keep LF endings or they fail to execute inside the Linux
+# devcontainer with a "bad interpreter: /usr/bin/env bash^M" error.
+*.sh text eol=lf
+
+# Keep these LF too so the devcontainer and CI read them identically.
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.ts text eol=lf
+*.md text eol=lf

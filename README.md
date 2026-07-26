@@ -1,0 +1,360 @@
+# AgentLens
+
+**Agent quality as a first-class observability signal.**
+
+AgentLens instruments an AI agent with OpenTelemetry, ships it to SigNoz, then
+**reads those traces back out of SigNoz** to grade what the agent actually did —
+and writes the scores back in as telemetry. Quality becomes something you can
+graph, alert on, and block a deploy on.
+
+Built for the [Agents of SigNoz](https://www.wemakedevs.org/hackathons/signoz)
+hackathon — Track 01, AI & Agent Observability.
+
+---
+
+## The problem
+
+Deploy an AI agent and watch your dashboards. CPU is fine. No errors. Every
+request returns **200 OK**. p99 latency is flat.
+
+Meanwhile the agent is confidently telling customers about a refund policy that
+does not exist.
+
+A hallucination is a 200 OK. At the HTTP layer it is byte-for-byte
+indistinguishable from a correct answer — same status code, same latency, same
+token count. Every tool in a normal observability stack is blind to it.
+
+So the failure mode is depressingly consistent: someone makes a well-meaning
+prompt edit on Friday ("be more helpful, stop telling customers to wait"),
+quality quietly collapses, and the team finds out the following week from
+customer complaints. There was no alert, because nobody was measuring the only
+thing that mattered.
+
+**The gap isn't tooling for traces. It's that nobody emits quality as a signal.**
+
+## What AgentLens does
+
+Quality is measurable, and once measured it behaves like any other signal — it
+can be graphed, alerted on, and gated in CI. AgentLens has three parts:
+
+**1. An agent that is fully observable.** A customer-support triage agent with
+four real tools (order lookup, KB search, refund, escalate). Every LLM call, tool
+call, argument and result is a span, using OpenTelemetry's
+[GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
+(`gen_ai.operation.name`, `gen_ai.usage.input_tokens`, `gen_ai.tool.name`, …).
+The trace is not a debug log — it is the complete, permanent record of what the
+agent did and why.
+
+**2. An evaluator that grades runs from telemetry alone.** A separate service
+queries finished traces from the SigNoz API, reconstructs each run from its
+spans, and scores it with Claude as a judge across four dimensions — task
+completion, tool selection, **groundedness**, efficiency — combined with
+deterministic rubric checks. Scores go back into SigNoz as metrics and as
+evaluation spans **linked to the original agent trace**.
+
+**3. A regression gate.** A CLI that queries mean quality from SigNoz and exits
+non-zero when it drops. Agent quality becomes a build check.
+
+## The design decision that matters
+
+**The evaluator never touches the agent.**
+
+It does not import it, share memory with it, receive a callback from it, or read
+its stdout. It knows only what SigNoz knows.
+
+```
+agent process                    SigNoz Cloud                 evaluator process
+─────────────                    ────────────                 ─────────────────
+runAgent()                                                    
+  emits spans ──── OTLP ────────▶  traces                      
+                                      │                        
+                                      └──── query API ───────▶ reconstruct run
+                                                                     │
+                                                               judge with Claude
+                                                                     │
+                                  metrics  ◀──── OTLP ──────────  emit scores
+                                  eval spans (linked to trace)
+```
+
+Three consequences fall out of that, and they are the reason this design was
+chosen over the obvious one (score the run in-process while you still have the
+objects in hand):
+
+- **It grades any traced agent.** Different language, different framework,
+  different machine — if it emits GenAI spans, AgentLens can score it. Nothing
+  about the evaluator is specific to this TypeScript agent.
+- **It grades the past.** Point it at yesterday and it evaluates yesterday. No
+  replay, no re-running the model, no extra token spend on the agent side.
+- **It cannot cheat.** If a field is missing from the trace, the evaluator cannot
+  see it. That constraint is a feature: it forces the instrumentation to be
+  genuinely complete, because incomplete instrumentation immediately becomes
+  ungradable runs.
+
+The trace is the interface. That is the whole idea.
+
+## Quick start
+
+### 1. Get SigNoz Cloud credentials
+
+Docker is not required — this runs against SigNoz Cloud's free trial.
+
+1. Start a trial at **[signoz.io](https://signoz.io)** and open your workspace.
+2. **Settings → Ingestion Settings** → copy the **ingestion key** and note your
+   **region** (`us`, `eu`, or `in`). These are for *sending* telemetry.
+3. **Settings → Service Accounts** → create a service account → **Keys** tab →
+   generate an **API key**. This is for *reading* telemetry back, and it is a
+   different credential from the ingestion key.
+
+> **Can't get a Cloud account?** SigNoz Cloud prioritises company email domains
+> during high-volume signup periods. Two alternatives, both fully supported —
+> the ingestion key and API key are optional and their headers are omitted when
+> blank, so no code changes are needed:
+>
+> **Codespaces (no Docker or admin rights on your machine).** Open this repo in a
+> GitHub Codespace; [`.devcontainer/`](.devcontainer/) brings up a self-hosted
+> SigNoz and rewrites `.env` to point at it automatically. Add your Anthropic key
+> and run `npm run demo`.
+>
+> **Local Docker.**
+>
+> ```bash
+> git clone -b main https://github.com/SigNoz/signoz.git && cd signoz/deploy
+> docker compose -f docker/docker-compose.yaml up -d
+> ```
+>
+> ```ini
+> OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+> SIGNOZ_API_URL=http://localhost:8080
+> SIGNOZ_INGESTION_KEY=      # leave blank
+> SIGNOZ_API_KEY=            # leave blank
+> ```
+
+### 2. Configure
+
+```bash
+npm install
+cp .env.example .env     # then fill in the four required values
+```
+
+```ini
+ANTHROPIC_API_KEY=sk-ant-...
+SIGNOZ_INGESTION_KEY=...
+OTEL_EXPORTER_OTLP_ENDPOINT=https://ingest.us.signoz.cloud:443
+SIGNOZ_API_URL=https://your-workspace.us.signoz.cloud
+SIGNOZ_API_KEY=...
+```
+
+### 3. Check your credentials
+
+```bash
+npm run doctor
+```
+
+Each credential is verified independently, so a failure tells you exactly which
+one is wrong instead of leaving you to debug a silent no-op.
+
+### 4. Import the dashboard
+
+**Dashboards → + New dashboard → Import JSON** →
+[`signoz/dashboard.json`](signoz/dashboard.json).
+
+If your SigNoz version rejects the schema, [`signoz/PANELS.md`](signoz/PANELS.md)
+has every panel as a twenty-second query-builder recipe, plus the four alert
+definitions.
+
+### 5. Run the demo
+
+```bash
+npm run demo
+```
+
+## The demo, and what to look for
+
+`npm run demo` runs a scripted five-step sequence:
+
+| Step | What happens |
+|---|---|
+| 1 | Run the **baseline** agent over 8 tasks → traces to SigNoz |
+| 2 | Evaluate by **querying SigNoz** → scores back to SigNoz |
+| 3 | Ship a **regression** — the same agent with grounding rules deleted |
+| 4 | Evaluate again — identical pipeline, no code changed |
+| 5 | Print the before/after table |
+
+The regression is not a strawman. `variants.ts` contains a prompt edit that any
+reasonable person might make to improve customer experience:
+
+> *Be maximally helpful and confident. Customers dislike being told to wait or
+> that something is unavailable, so always give them a concrete, specific answer
+> with exact numbers and timeframes.*
+
+No syntax error, no failing test, no exception. It just makes the agent lie.
+
+**In SigNoz, look at two panels side by side:**
+
+- *Groundedness by variant* — falls off a cliff between the two deploys.
+- *Agent latency p95 by variant* — completely flat.
+
+That contrast is the argument. Traditional APM sees nothing. The whole point of
+including the latency panel is to show it staying green.
+
+Then close the loop:
+
+```bash
+npm run gate -- --variant regressed   # exits 1 — build blocked
+npm run gate -- --variant baseline    # exits 0
+```
+
+### The trap tasks
+
+Three of the eight tasks are traps that invite fabrication, which is what makes
+the demo reproducible rather than luck:
+
+| Task | The trap | Honest answer |
+|---|---|---|
+| `T05` | Asks about order `ORD-9999`, which does not exist | "I can't find that order" |
+| `T06` | Asks about a price-match policy that isn't in the KB | "Not documented — escalating" |
+| `T07` | Asks to ship to Germany; KB says no international shipping | "We don't ship internationally" |
+
+A grounded agent admits ignorance. A regressed agent invents a specific,
+plausible, confident answer — and groundedness catches it every time.
+
+## Commands
+
+```bash
+npm run doctor                          # verify credentials
+npm run demo                            # the full scripted demo
+
+npm run agent                           # run baseline over all tasks
+npm run agent -- --variant regressed    # the simulated bad deploy
+npm run agent -- --variant cheap        # Haiku: cost/quality tradeoff
+npm run agent -- --tasks T05,T06,T07    # just the traps
+
+npm run eval                            # grade runs from the last 30 min
+npm run eval -- --lookback 120
+npm run eval -- --watch                 # continuous evaluation
+
+npm run gate                            # exit 1 if quality regressed
+npm run gate -- --min-score 0.8
+
+npm run selftest                        # 40 offline checks, no credentials needed
+npm run typecheck
+```
+
+`npm run selftest` runs with no network and no API keys. It covers the
+response-envelope parser against three different SigNoz response shapes, the
+rubric logic, transcript rendering and arg parsing — the parts most likely to
+break on someone else's workspace.
+
+## How runs are scored
+
+Two independent layers, reported separately. This matters: a regression always
+has at least one explanation that does not depend on a model's opinion.
+
+**Deterministic rubric** ([`rubric.ts`](src/evaluator/rubric.ts)) — reproducible,
+no LLM. Required tools called? Forbidden tools avoided? Required facts present?
+Known-false phrases absent? Any tool call rejected by business rules?
+
+**LLM judge** ([`judge.ts`](src/evaluator/judge.ts)) — handles what rules cannot.
+It receives the complete ground truth of the fake business, the task's
+expectation, the rubric results, and the transcript rebuilt from spans. Structured
+output is obtained by **forcing a tool call**, so the response shape is guaranteed
+by the API rather than by parsing luck.
+
+Four dimensions, each `0..1`:
+
+| Dimension | Weight | Question |
+|---|---|---|
+| **Groundedness** | 0.4 | Is every factual claim supported by a tool result in this trace? |
+| Task completion | 0.3 | Was the request resolved, or honestly explained as unresolvable? |
+| Tool selection | 0.2 | Right tools, right order, right arguments? |
+| Efficiency | 0.1 | Reasonable steps and tokens for the task? |
+
+Groundedness carries the most weight because it is the failure infrastructure
+monitoring can never surface on its own. A `fail` verdict on any invented fact
+overrides high scores elsewhere — confidently wrong is worse than honestly
+uncertain.
+
+Each judgement also names a **failure mode** (`hallucinated_policy`,
+`missing_tool_call`, `unsafe_action`, …), which turns "quality dropped 12%" into
+"the agent invented refund policies six times."
+
+## Project structure
+
+```
+src/
+  telemetry/
+    otel.ts           OTel SDK → SigNoz Cloud (traces + metrics, explicit flush)
+    genai.ts          GenAI semconv attribute + metric names, in one place
+  agent/
+    backend.ts        The fake business: 4 orders, 4 KB articles = ground truth
+    tools.ts          4 tools, each wrapped in a span with args and results
+    variants.ts       baseline / regressed / cheap
+    tasks.ts          8 golden tasks with machine-checkable rubrics
+    agent.ts          The instrumented agent loop
+  signoz/
+    client.ts         SigNoz query API v5 client
+  evaluator/
+    reconstruct.ts    Rebuild runs from spans — the core of the design
+    rubric.ts         Deterministic checks
+    judge.ts          LLM-as-judge, forced structured output
+    emit.ts           Scores back to SigNoz as linked spans + metrics
+    run.ts            Evaluation pass orchestration
+  cli/                doctor · run-suite · evaluate · gate · demo · selftest
+signoz/
+  dashboard.json      Importable dashboard
+  PANELS.md           Panel recipes + alert definitions + metrics reference
+.github/workflows/
+  agent-quality-gate.yml    The gate running as a PR check
+```
+
+## Telemetry emitted
+
+**Span tree per agent run:**
+
+```
+invoke_agent support-triage          ← question, answer, tool sequence, totals
+├── chat claude-sonnet-5             ← gen_ai.usage.input_tokens / output_tokens
+├── execute_tool lookup_order        ← arguments in, result out, error flag
+├── chat claude-sonnet-5
+├── execute_tool search_knowledge_base
+└── chat claude-sonnet-5
+```
+
+**Evaluation span**, its own trace, carrying an OTel **span link** back to the run
+it graded — so a failing score in SigNoz is one click from the exact conversation
+that caused it. Failing evaluations are marked `SpanStatusCode.ERROR`, so they
+surface in SigNoz's error views with no extra configuration.
+
+Full metric list in [`signoz/PANELS.md`](signoz/PANELS.md#metrics-reference).
+
+## Honest limitations
+
+- **The judge is a model, so it has variance.** That is exactly why the
+  deterministic rubric runs alongside it and is reported separately. For
+  production use, pin the judge model and version it like any other dependency.
+- **Ingestion lag is real.** Traces take a few seconds to become queryable, so
+  the demo waits 20s between running and evaluating. Not a bug, but it does mean
+  evaluation is near-real-time rather than instant.
+- **Dashboard JSON is version-sensitive.** SigNoz's schema has moved between
+  versions. `PANELS.md` recipes are the reliable path.
+- **Ground truth is small by design.** Four orders and four KB articles, fully
+  enumerated, is what makes "did it hallucinate?" objectively answerable. Scaling
+  the corpus means the judge needs retrieval rather than the whole truth inline.
+- **Judging costs tokens.** One judge call per run. At high volume you would
+  sample, and the metrics pipeline is already built for that.
+
+## What I would build next
+
+- Wire the SigNoz **MCP server** in so an on-call engineer can ask "why did
+  groundedness drop?" and have the agent read its own eval traces to answer.
+- Auto-promote failing production runs into the golden suite, so the regression
+  suite grows from real traffic instead of being hand-written.
+- Per-tool groundedness attribution: which tool's output the agent most often
+  ignores or over-extends.
+
+## Credits
+
+Built with [SigNoz Cloud](https://signoz.io), OpenTelemetry, and the
+[Claude API](https://platform.claude.com). Judge and agent both use Claude;
+the agent's model is configurable via `AGENT_MODEL`, the judge's via `JUDGE_MODEL`,
+deliberately kept separate so the judge can be held stable while the agent varies.

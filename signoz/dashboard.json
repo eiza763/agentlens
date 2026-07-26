@@ -1,0 +1,504 @@
+{
+  "title": "AgentLens — AI Agent Quality",
+  "description": "Agent quality as a first-class signal: groundedness, task completion, tool selection and token efficiency, per prompt variant. Panels read the evaluation spans written by agentlens-evaluator.",
+  "tags": ["agentlens", "llm", "ai-agent", "quality"],
+  "variables": {},
+  "layout": [
+    { "i": "score-over-time", "x": 0, "y": 0, "w": 6, "h": 4 },
+    { "i": "groundedness-over-time", "x": 6, "y": 0, "w": 6, "h": 4 },
+    { "i": "mean-score-now", "x": 0, "y": 4, "w": 3, "h": 3 },
+    { "i": "groundedness-now", "x": 3, "y": 4, "w": 3, "h": 3 },
+    { "i": "failed-runs", "x": 6, "y": 4, "w": 3, "h": 3 },
+    { "i": "tokens-per-run", "x": 9, "y": 4, "w": 3, "h": 3 },
+    { "i": "failure-modes", "x": 0, "y": 7, "w": 6, "h": 4 },
+    { "i": "score-by-task", "x": 6, "y": 7, "w": 6, "h": 4 },
+    { "i": "tokens-by-verdict", "x": 0, "y": 11, "w": 6, "h": 4 },
+    { "i": "agent-latency", "x": 6, "y": 11, "w": 6, "h": 4 }
+  ],
+  "widgets": [
+    {
+      "id": "score-over-time",
+      "title": "Mean overall score by variant",
+      "description": "The headline quality signal. A prompt or model change that hurts quality shows up here as a step change.",
+      "panelTypes": "graph",
+      "nullZeroValues": "zero",
+      "yAxisUnit": "none",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "clickhouse_sql": [],
+        "builder": {
+          "queryData": [
+            {
+              "queryName": "A",
+              "expression": "A",
+              "dataSource": "traces",
+              "aggregateOperator": "avg",
+              "aggregateAttribute": {
+                "key": "agentlens.eval.score.overall",
+                "dataType": "float64",
+                "type": "tag",
+                "isColumn": false
+              },
+              "filters": {
+                "op": "AND",
+                "items": [
+                  {
+                    "key": { "key": "name", "dataType": "string", "type": "tag", "isColumn": true },
+                    "op": "=",
+                    "value": "evaluate_run support-triage"
+                  }
+                ]
+              },
+              "groupBy": [
+                { "key": "agentlens.variant", "dataType": "string", "type": "tag", "isColumn": false }
+              ],
+              "having": [],
+              "orderBy": [],
+              "legend": "{{agentlens.variant}}",
+              "reduceTo": "avg",
+              "stepInterval": 60,
+              "disabled": false
+            }
+          ],
+          "queryFormulas": []
+        }
+      }
+    },
+    {
+      "id": "groundedness-over-time",
+      "title": "Groundedness by variant (hallucination signal)",
+      "description": "Fraction of factual claims supported by tool results. This is the panel that catches a hallucinating agent while every infrastructure metric stays green.",
+      "panelTypes": "graph",
+      "nullZeroValues": "zero",
+      "yAxisUnit": "none",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "clickhouse_sql": [],
+        "builder": {
+          "queryData": [
+            {
+              "queryName": "A",
+              "expression": "A",
+              "dataSource": "traces",
+              "aggregateOperator": "avg",
+              "aggregateAttribute": {
+                "key": "agentlens.eval.score.groundedness",
+                "dataType": "float64",
+                "type": "tag",
+                "isColumn": false
+              },
+              "filters": {
+                "op": "AND",
+                "items": [
+                  {
+                    "key": { "key": "name", "dataType": "string", "type": "tag", "isColumn": true },
+                    "op": "=",
+                    "value": "evaluate_run support-triage"
+                  }
+                ]
+              },
+              "groupBy": [
+                { "key": "agentlens.variant", "dataType": "string", "type": "tag", "isColumn": false }
+              ],
+              "having": [],
+              "orderBy": [],
+              "legend": "{{agentlens.variant}}",
+              "reduceTo": "avg",
+              "stepInterval": 60,
+              "disabled": false
+            }
+          ],
+          "queryFormulas": []
+        }
+      }
+    },
+    {
+      "id": "mean-score-now",
+      "title": "Mean overall score",
+      "description": "Current window average across all variants.",
+      "panelTypes": "value",
+      "nullZeroValues": "zero",
+      "yAxisUnit": "none",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "clickhouse_sql": [],
+        "builder": {
+          "queryData": [
+            {
+              "queryName": "A",
+              "expression": "A",
+              "dataSource": "traces",
+              "aggregateOperator": "avg",
+              "aggregateAttribute": {
+                "key": "agentlens.eval.score.overall",
+                "dataType": "float64",
+                "type": "tag",
+                "isColumn": false
+              },
+              "filters": {
+                "op": "AND",
+                "items": [
+                  {
+                    "key": { "key": "name", "dataType": "string", "type": "tag", "isColumn": true },
+                    "op": "=",
+                    "value": "evaluate_run support-triage"
+                  }
+                ]
+              },
+              "groupBy": [],
+              "having": [],
+              "orderBy": [],
+              "legend": "score",
+              "reduceTo": "avg",
+              "stepInterval": 60,
+              "disabled": false
+            }
+          ],
+          "queryFormulas": []
+        }
+      }
+    },
+    {
+      "id": "groundedness-now",
+      "title": "Mean groundedness",
+      "description": "Current window average.",
+      "panelTypes": "value",
+      "nullZeroValues": "zero",
+      "yAxisUnit": "none",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "clickhouse_sql": [],
+        "builder": {
+          "queryData": [
+            {
+              "queryName": "A",
+              "expression": "A",
+              "dataSource": "traces",
+              "aggregateOperator": "avg",
+              "aggregateAttribute": {
+                "key": "agentlens.eval.score.groundedness",
+                "dataType": "float64",
+                "type": "tag",
+                "isColumn": false
+              },
+              "filters": {
+                "op": "AND",
+                "items": [
+                  {
+                    "key": { "key": "name", "dataType": "string", "type": "tag", "isColumn": true },
+                    "op": "=",
+                    "value": "evaluate_run support-triage"
+                  }
+                ]
+              },
+              "groupBy": [],
+              "having": [],
+              "orderBy": [],
+              "legend": "groundedness",
+              "reduceTo": "avg",
+              "stepInterval": 60,
+              "disabled": false
+            }
+          ],
+          "queryFormulas": []
+        }
+      }
+    },
+    {
+      "id": "failed-runs",
+      "title": "Failed runs",
+      "description": "Evaluations whose verdict was 'fail'.",
+      "panelTypes": "value",
+      "nullZeroValues": "zero",
+      "yAxisUnit": "none",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "clickhouse_sql": [],
+        "builder": {
+          "queryData": [
+            {
+              "queryName": "A",
+              "expression": "A",
+              "dataSource": "traces",
+              "aggregateOperator": "count",
+              "aggregateAttribute": { "key": "", "dataType": "", "type": "", "isColumn": false },
+              "filters": {
+                "op": "AND",
+                "items": [
+                  {
+                    "key": { "key": "name", "dataType": "string", "type": "tag", "isColumn": true },
+                    "op": "=",
+                    "value": "evaluate_run support-triage"
+                  },
+                  {
+                    "key": { "key": "agentlens.eval.verdict", "dataType": "string", "type": "tag", "isColumn": false },
+                    "op": "=",
+                    "value": "fail"
+                  }
+                ]
+              },
+              "groupBy": [],
+              "having": [],
+              "orderBy": [],
+              "legend": "failed",
+              "reduceTo": "sum",
+              "stepInterval": 60,
+              "disabled": false
+            }
+          ],
+          "queryFormulas": []
+        }
+      }
+    },
+    {
+      "id": "tokens-per-run",
+      "title": "Mean tokens per run",
+      "description": "Token efficiency. Read alongside the score panels — cheap and wrong is not cheap.",
+      "panelTypes": "value",
+      "nullZeroValues": "zero",
+      "yAxisUnit": "none",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "clickhouse_sql": [],
+        "builder": {
+          "queryData": [
+            {
+              "queryName": "A",
+              "expression": "A",
+              "dataSource": "traces",
+              "aggregateOperator": "avg",
+              "aggregateAttribute": {
+                "key": "agentlens.tokens.total",
+                "dataType": "float64",
+                "type": "tag",
+                "isColumn": false
+              },
+              "filters": {
+                "op": "AND",
+                "items": [
+                  {
+                    "key": { "key": "name", "dataType": "string", "type": "tag", "isColumn": true },
+                    "op": "=",
+                    "value": "evaluate_run support-triage"
+                  }
+                ]
+              },
+              "groupBy": [],
+              "having": [],
+              "orderBy": [],
+              "legend": "tokens",
+              "reduceTo": "avg",
+              "stepInterval": 60,
+              "disabled": false
+            }
+          ],
+          "queryFormulas": []
+        }
+      }
+    },
+    {
+      "id": "failure-modes",
+      "title": "Failure modes",
+      "description": "Why runs failed, named. 'hallucinated_policy' and 'hallucinated_order_fact' are the ones that damage customer trust.",
+      "panelTypes": "table",
+      "nullZeroValues": "zero",
+      "yAxisUnit": "none",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "clickhouse_sql": [],
+        "builder": {
+          "queryData": [
+            {
+              "queryName": "A",
+              "expression": "A",
+              "dataSource": "traces",
+              "aggregateOperator": "count",
+              "aggregateAttribute": { "key": "", "dataType": "", "type": "", "isColumn": false },
+              "filters": {
+                "op": "AND",
+                "items": [
+                  {
+                    "key": { "key": "name", "dataType": "string", "type": "tag", "isColumn": true },
+                    "op": "=",
+                    "value": "evaluate_run support-triage"
+                  },
+                  {
+                    "key": { "key": "agentlens.eval.verdict", "dataType": "string", "type": "tag", "isColumn": false },
+                    "op": "=",
+                    "value": "fail"
+                  }
+                ]
+              },
+              "groupBy": [
+                { "key": "agentlens.eval.failure_mode", "dataType": "string", "type": "tag", "isColumn": false },
+                { "key": "agentlens.variant", "dataType": "string", "type": "tag", "isColumn": false }
+              ],
+              "having": [],
+              "orderBy": [],
+              "legend": "{{agentlens.eval.failure_mode}} / {{agentlens.variant}}",
+              "reduceTo": "sum",
+              "stepInterval": 60,
+              "disabled": false
+            }
+          ],
+          "queryFormulas": []
+        }
+      }
+    },
+    {
+      "id": "score-by-task",
+      "title": "Mean score by task",
+      "description": "Which tasks the agent is weakest on. Trap tasks (T05-T07) are where hallucination shows first.",
+      "panelTypes": "table",
+      "nullZeroValues": "zero",
+      "yAxisUnit": "none",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "clickhouse_sql": [],
+        "builder": {
+          "queryData": [
+            {
+              "queryName": "A",
+              "expression": "A",
+              "dataSource": "traces",
+              "aggregateOperator": "avg",
+              "aggregateAttribute": {
+                "key": "agentlens.eval.score.overall",
+                "dataType": "float64",
+                "type": "tag",
+                "isColumn": false
+              },
+              "filters": {
+                "op": "AND",
+                "items": [
+                  {
+                    "key": { "key": "name", "dataType": "string", "type": "tag", "isColumn": true },
+                    "op": "=",
+                    "value": "evaluate_run support-triage"
+                  }
+                ]
+              },
+              "groupBy": [
+                { "key": "agentlens.task.id", "dataType": "string", "type": "tag", "isColumn": false },
+                { "key": "agentlens.variant", "dataType": "string", "type": "tag", "isColumn": false }
+              ],
+              "having": [],
+              "orderBy": [],
+              "legend": "{{agentlens.task.id}} / {{agentlens.variant}}",
+              "reduceTo": "avg",
+              "stepInterval": 60,
+              "disabled": false
+            }
+          ],
+          "queryFormulas": []
+        }
+      }
+    },
+    {
+      "id": "tokens-by-verdict",
+      "title": "Tokens spent, split by verdict",
+      "description": "Tokens on 'fail' runs bought nothing. This panel is the wasted-effort view.",
+      "panelTypes": "graph",
+      "nullZeroValues": "zero",
+      "yAxisUnit": "none",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "clickhouse_sql": [],
+        "builder": {
+          "queryData": [
+            {
+              "queryName": "A",
+              "expression": "A",
+              "dataSource": "traces",
+              "aggregateOperator": "sum",
+              "aggregateAttribute": {
+                "key": "agentlens.tokens.total",
+                "dataType": "float64",
+                "type": "tag",
+                "isColumn": false
+              },
+              "filters": {
+                "op": "AND",
+                "items": [
+                  {
+                    "key": { "key": "name", "dataType": "string", "type": "tag", "isColumn": true },
+                    "op": "=",
+                    "value": "evaluate_run support-triage"
+                  }
+                ]
+              },
+              "groupBy": [
+                { "key": "agentlens.eval.verdict", "dataType": "string", "type": "tag", "isColumn": false }
+              ],
+              "having": [],
+              "orderBy": [],
+              "legend": "{{agentlens.eval.verdict}}",
+              "reduceTo": "sum",
+              "stepInterval": 60,
+              "disabled": false
+            }
+          ],
+          "queryFormulas": []
+        }
+      }
+    },
+    {
+      "id": "agent-latency",
+      "title": "Agent run latency p95 by variant",
+      "description": "The signal traditional APM already gives you — shown here to make the point that it stays flat while quality collapses.",
+      "panelTypes": "graph",
+      "nullZeroValues": "zero",
+      "yAxisUnit": "ms",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "clickhouse_sql": [],
+        "builder": {
+          "queryData": [
+            {
+              "queryName": "A",
+              "expression": "A",
+              "dataSource": "traces",
+              "aggregateOperator": "p95",
+              "aggregateAttribute": {
+                "key": "duration_nano",
+                "dataType": "float64",
+                "type": "tag",
+                "isColumn": true
+              },
+              "filters": {
+                "op": "AND",
+                "items": [
+                  {
+                    "key": { "key": "name", "dataType": "string", "type": "tag", "isColumn": true },
+                    "op": "=",
+                    "value": "invoke_agent support-triage"
+                  }
+                ]
+              },
+              "groupBy": [
+                { "key": "agentlens.variant", "dataType": "string", "type": "tag", "isColumn": false }
+              ],
+              "having": [],
+              "orderBy": [],
+              "legend": "{{agentlens.variant}}",
+              "reduceTo": "avg",
+              "stepInterval": 60,
+              "disabled": false
+            }
+          ],
+          "queryFormulas": []
+        }
+      }
+    }
+  ]
+}

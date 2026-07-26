@@ -1,0 +1,36 @@
+{
+  "name": "agentlens",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Evaluation-in-production for AI agents, built on SigNoz. Grades agent behaviour from its own OpenTelemetry traces and writes the scores back as telemetry.",
+  "engines": {
+    "node": ">=20.6.0"
+  },
+  "scripts": {
+    "agent": "tsx src/cli/run-suite.ts",
+    "eval": "tsx src/cli/evaluate.ts",
+    "gate": "tsx src/cli/gate.ts",
+    "demo": "tsx src/cli/demo.ts",
+    "doctor": "tsx src/cli/doctor.ts",
+    "selftest": "tsx src/cli/selftest.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.65.0",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.205.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.205.0",
+    "@opentelemetry/resources": "^2.1.0",
+    "@opentelemetry/sdk-metrics": "^2.1.0",
+    "@opentelemetry/sdk-node": "^0.205.0",
+    "@opentelemetry/sdk-trace-base": "^2.1.0",
+    "@opentelemetry/semantic-conventions": "^1.37.0",
+    "dotenv": "^17.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

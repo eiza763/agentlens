@@ -1,0 +1,33 @@
+{
+  "name": "AgentLens + self-hosted SigNoz",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:22",
+
+  // Docker-in-Docker so SigNoz's compose stack can run inside the Codespace.
+  // This is the whole point of the devcontainer: it removes the need for Docker
+  // (and admin rights) on your own machine.
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+
+  // ClickHouse is the memory-hungry part of SigNoz. 4 cores / 8GB is the
+  // smallest Codespaces size that runs the stack comfortably.
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb",
+    "storage": "32gb"
+  },
+
+  "forwardPorts": [8080, 4318],
+  "portsAttributes": {
+    "8080": { "label": "SigNoz UI", "onAutoForward": "openBrowser" },
+    "4318": { "label": "OTLP HTTP ingest", "onAutoForward": "silent" }
+  },
+
+  "postCreateCommand": "npm install && bash .devcontainer/setup-signoz.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode"]
+    }
+  }
+}

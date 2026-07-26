@@ -1,0 +1,63 @@
+name: Agent quality gate
+
+# Treats agent quality like any other build check: run the suite, evaluate it
+# from SigNoz, and fail the job if quality regressed.
+#
+# This is what makes the project more than a dashboard. A dashboard tells you
+# about a regression after it ships. This blocks it.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      SIGNOZ_INGESTION_KEY: ${{ secrets.SIGNOZ_INGESTION_KEY }}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
+      SIGNOZ_API_URL: ${{ secrets.SIGNOZ_API_URL }}
+      SIGNOZ_API_KEY: ${{ secrets.SIGNOZ_API_KEY }}
+      # Tag this CI run so the gate only looks at runs from this commit.
+      AGENTLENS_SUITE: ci-${{ github.run_id }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Runs without credentials, so it fails fast on logic errors before
+      # spending any tokens.
+      - name: Offline self-test
+        run: npm run selftest
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Verify credentials
+        run: npm run doctor
+
+      - name: Run the agent suite
+        run: npm run agent -- --variant baseline --suite "$AGENTLENS_SUITE"
+
+      - name: Wait for SigNoz ingestion
+        run: sleep 30
+
+      - name: Evaluate runs from SigNoz
+        run: npm run eval -- --lookback 15 --variant baseline
+
+      - name: Wait for evaluation ingestion
+        run: sleep 30
+
+      # Exits 1 when mean score is below threshold, which fails the job and
+      # blocks the pull request.
+      - name: Quality gate
+        run: npm run gate -- --lookback 15 --variant baseline
