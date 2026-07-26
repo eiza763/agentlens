@@ -67,12 +67,12 @@ gate, no verification email. **Write the password down**, you need it next.
 
 AgentLens needs this to read traces back out.
 
-1. In SigNoz: **Settings** (gear icon) → **API Keys**
-2. **Create a key**, any name, role **Admin**
+1. In SigNoz: **Settings** → **Service Accounts** (`/settings/service-accounts`)
+2. **New Service Account** → its **Keys** tab → **Add Key** (role `signoz-viewer` is enough)
 3. **Copy it**
 
-> Your build may say **Service Accounts** instead. Create a service account, open
-> its **Keys** tab, generate a key there. Same thing.
+> There is no "API Keys" page in current SigNoz builds — service accounts replaced
+> it. AgentLens only reads through the query API, so a viewer role is sufficient.
 
 ## 1.6 Fill in `.env`
 
