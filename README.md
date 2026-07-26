@@ -18,6 +18,9 @@ hackathon — Track 01, AI & Agent Observability.
 > **To evaluate this without any setup**, jump to
 > [How to evaluate this project](#how-to-evaluate-this-project) — Tier 1 needs
 > nothing installed, Tier 2 needs no credentials.
+>
+> Recording a walkthrough? [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) has a 90-second
+> shot-by-shot script.
 
 ---
 
